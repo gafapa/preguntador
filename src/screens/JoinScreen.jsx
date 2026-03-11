@@ -22,13 +22,13 @@ export default function JoinScreen({ navigate }) {
         localStorage.setItem('preguntador_playerName', finalName);
 
         try {
-            await playerConnection.connect(code.trim(), finalName);
+            const { playerId } = await playerConnection.connect(code.trim(), finalName);
             setStatus(t('join.connected'));
-            navigate('player-game', { playerConnection, playerName: finalName });
+            navigate('player-game', { playerConnection, playerName: finalName, playerId });
         } catch (err) {
             setStatus('');
             setConnecting(false);
-            alert('Error: ' + (err.message || 'Verifica el código'));
+            alert(`${t('join.errorPrefix')}: ${getJoinErrorMessage(t, err)}`);
             playerConnection.destroy();
         }
     };
@@ -53,7 +53,7 @@ export default function JoinScreen({ navigate }) {
                         </label>
                         <input
                             className="input input-code"
-                            placeholder="ABC123"
+                            placeholder={t('join.codePlaceholder')}
                             value={code}
                             onChange={handleCodeChange}
                             maxLength={6}
@@ -67,7 +67,7 @@ export default function JoinScreen({ navigate }) {
                         </label>
                         <input
                             className="input"
-                            placeholder="..."
+                            placeholder={t('join.namePlaceholder')}
                             value={name}
                             onChange={(e) => setName(e.target.value.slice(0, 20))}
                             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
@@ -94,4 +94,25 @@ export default function JoinScreen({ navigate }) {
             </div>
         </div>
     );
+}
+
+function getJoinErrorMessage(t, error) {
+    const errorCode = error?.code || error?.type;
+
+    switch (errorCode) {
+        case 'peer-unavailable':
+        case 'peer-unavailable-id':
+        case 'unavailable-id':
+            return t('join.errorInvalidCode');
+        case 'game-in-progress':
+            return t('join.errorGameInProgress');
+        case 'join-rejected':
+            return t('join.errorRejected');
+        case 'connection-closed':
+            return t('join.errorConnectionClosed');
+        case 'connection-timeout':
+            return t('join.errorTimeout');
+        default:
+            return t('join.errorUnknown');
+    }
 }

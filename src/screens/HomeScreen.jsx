@@ -1,5 +1,6 @@
 import React from 'react';
 import { loadQuizzes, deleteQuiz, saveQuiz, generateId } from '../game/QuizStore.js';
+import { isQuizPlayable, parseImportedQuiz } from '../game/QuizSchema.js';
 import { useLanguage } from '../i18n.jsx';
 import { useTheme } from '../ThemeProvider.jsx';
 
@@ -35,14 +36,10 @@ export default function HomeScreen({ navigate }) {
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const importedData = JSON.parse(event.target.result);
-                if (!importedData.title || !Array.isArray(importedData.questions)) {
-                    throw new Error('Formato inválido');
-                }
-                importedData.id = generateId(); // prevent collisions
-                saveQuiz(importedData);
+                const importedQuiz = parseImportedQuiz(JSON.parse(event.target.result), generateId);
+                saveQuiz(importedQuiz);
                 setQuizzes(loadQuizzes());
-            } catch (err) {
+            } catch {
                 alert(t('home.importError'));
             }
         };
@@ -52,33 +49,7 @@ export default function HomeScreen({ navigate }) {
     const [showGptModal, setShowGptModal] = React.useState(false);
     const [copied, setCopied] = React.useState(false);
     const [gptInput, setGptInput] = React.useState('');
-
-    const promptText = `Actúa como un creador de quizzes. Genera un archivo JSON con preguntas de trivia sobre el tema: [TEMA_AQUI].
-
-Reglas:
-1. El JSON debe tener la estructura exacta del ejemplo.
-2. Cada pregunta debe tener exactamente 4 respuestas posibles (solo una con "correct": true).
-3. "timeLimit" debe ser un número entero (ej. 20).
-4. Puedes añadir URLs de imágenes públicas directas en el campo "image" (de lo contrario, déjalo vacío "").
-5. Devuelve SOLO el código JSON válido.
-
-Ejemplo de formato:
-{
-  "title": "Título del Quiz",
-  "questions": [
-    {
-      "text": "¿Pregunta de ejemplo?",
-      "timeLimit": 20,
-      "image": "https://ejemplo.com/imagen.jpg",
-      "answers": [
-        { "text": "Falsa 1", "correct": false },
-        { "text": "Falsa 2", "correct": false },
-        { "text": "Correcta", "correct": true },
-        { "text": "Falsa 3", "correct": false }
-      ]
-    }
-  ]
-}`;
+    const promptText = t('home.aiPromptTemplate');
 
     const handleCopyPrompt = () => {
         if (navigator.clipboard) {
@@ -91,18 +62,14 @@ Ejemplo de formato:
 
     const handleCreateFromGpt = () => {
         try {
-            const importedData = JSON.parse(gptInput);
-            if (!importedData.title || !Array.isArray(importedData.questions)) {
-                throw new Error('Formato inválido');
-            }
-            importedData.id = generateId(); // prevent collisions
-            saveQuiz(importedData);
+            const importedQuiz = parseImportedQuiz(JSON.parse(gptInput), generateId);
+            saveQuiz(importedQuiz);
             setQuizzes(loadQuizzes());
             setShowGptModal(false);
             setGptInput('');
-            navigate('editor', { quizId: importedData.id });
-        } catch (err) {
-            alert(t('home.importError') || "Error al leer el formato JSON. Asegúrate de copiar el JSON completo generado por la IA.");
+            navigate('editor', { quizId: importedQuiz.id });
+        } catch {
+            alert(t('home.aiJsonError'));
         }
     };
 
@@ -115,9 +82,9 @@ Ejemplo de formato:
                     value={language}
                     onChange={(e) => changeLanguage(e.target.value)}
                 >
-                    <option value="es">Español</option>
-                    <option value="en">English</option>
-                    <option value="gl">Galego</option>
+                    <option value="es">{t('language.es')}</option>
+                    <option value="en">{t('language.en')}</option>
+                    <option value="gl">{t('language.gl')}</option>
                 </select>
                 <button className="nav-btn" onClick={toggleTheme}>
                     {theme === 'dark' ? '🌞' : '🌙'}
@@ -150,7 +117,9 @@ Ejemplo de formato:
                             {t('home.myQuizzes')}
                         </h3>
                         <div className="quiz-list">
-                            {quizzes.map((q) => (
+                            {quizzes.map((q) => {
+                                const canPlay = isQuizPlayable(q);
+                                return (
                                 <div className="quiz-list-item" key={q.id} onClick={() => navigate('editor', { quizId: q.id })}>
                                     <div className="quiz-list-item-info" style={{ textAlign: 'left' }}>
                                         <div className="quiz-list-item-title">{q.title}</div>
@@ -158,8 +127,14 @@ Ejemplo de formato:
                                             {q.questions.length} {q.questions.length === 1 ? t('home.question') : t('home.questions')}
                                         </div>
                                     </div>
-                                    <button className="btn btn-primary btn-icon" title={t('home.play')}
-                                        onClick={(e) => { e.stopPropagation(); navigate('host-lobby', { quizId: q.id }); }}>▶</button>
+                                    <button
+                                        className="btn btn-primary btn-icon"
+                                        title={canPlay ? t('home.play') : t('home.invalidQuizTitle')}
+                                        disabled={!canPlay}
+                                        onClick={(e) => { e.stopPropagation(); navigate('host-lobby', { quizId: q.id }); }}
+                                    >
+                                        ▶
+                                    </button>
                                     <button className="btn btn-secondary btn-icon" title={t('home.edit')}
                                         onClick={(e) => { e.stopPropagation(); navigate('editor', { quizId: q.id }); }}>✏️</button>
                                     <button className="btn btn-secondary btn-icon" title={t('home.export')}
@@ -168,7 +143,8 @@ Ejemplo de formato:
                                         style={{ background: 'rgba(231,76,60,0.15)', color: 'var(--color-red)' }}
                                         onClick={(e) => handleDelete(q.id, e)}>🗑️</button>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -195,11 +171,11 @@ Ejemplo de formato:
                         boxShadow: 'var(--shadow-lg)'
                     }} onClick={e => e.stopPropagation()}>
                         <div className="flex-row items-center" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
-                            <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 800 }}>🤖 Generar con IA</h3>
+                            <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 800 }}>🤖 {t('home.aiTitle')}</h3>
                             <button className="btn btn-icon btn-secondary" onClick={() => setShowGptModal(false)} style={{ border: 'none' }}>✕</button>
                         </div>
                         <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-md)' }}>
-                            1. Copia este texto y pídele a ChatGPT u otra IA que genere un nuevo Quiz.
+                            {t('home.aiStep1')}
                         </p>
                         <div style={{
                             background: 'var(--color-bg-card)', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)',
@@ -209,21 +185,21 @@ Ejemplo de formato:
                             {promptText}
                         </div>
                         <button className={`btn btn-block ${copied ? 'btn-primary' : 'btn-secondary'}`} onClick={handleCopyPrompt} style={{ marginBottom: 'var(--space-xl)' }}>
-                            {copied ? '✅ ¡Copiado!' : '📋 Copiar al portapapeles'}
+                            {copied ? t('home.aiCopied') : t('home.aiCopy')}
                         </button>
 
                         <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-sm)' }}>
-                            2. Completa aquí o pega el JSON de respuesta:
+                            {t('home.aiStep2')}
                         </p>
                         <textarea
                             className="input"
                             style={{ width: '100%', height: '120px', resize: 'vertical', fontFamily: 'monospace', marginBottom: 'var(--space-md)' }}
-                            placeholder='{"title": "Nuevo Quiz", "questions": [...]}'
+                            placeholder={t('home.aiPlaceholder')}
                             value={gptInput}
                             onChange={(e) => setGptInput(e.target.value)}
                         />
                         <button className="btn btn-primary btn-block btn-large" onClick={handleCreateFromGpt} disabled={!gptInput.trim()} style={{ background: 'linear-gradient(135deg, var(--color-primary), #a29bfe)', border: 'none' }}>
-                            ✨ Crear Quiz Mágicamente
+                            {t('home.aiCreate')}
                         </button>
                     </div>
                 </div>

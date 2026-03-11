@@ -10,6 +10,7 @@ export class PlayerConnection {
         this.peer = null;
         this.connection = null;
         this.listeners = new Set();
+        this.connectTimeoutId = null;
     }
 
     on(listener) {
@@ -24,6 +25,30 @@ export class PlayerConnection {
     async connect(roomCode, playerName) {
         return new Promise((resolve, reject) => {
             const hostPeerId = PEER_PREFIX + roomCode.toLowerCase().trim();
+            let settled = false;
+
+            const clearConnectTimeout = () => {
+                if (this.connectTimeoutId) {
+                    clearTimeout(this.connectTimeoutId);
+                    this.connectTimeoutId = null;
+                }
+            };
+
+            const resolveOnce = (payload = {}) => {
+                if (settled) return;
+                settled = true;
+                clearConnectTimeout();
+                resolve({
+                    playerId: payload.playerId || this.peer?.id || '',
+                });
+            };
+
+            const rejectOnce = (error) => {
+                if (settled) return;
+                settled = true;
+                clearConnectTimeout();
+                reject(error);
+            };
 
             this.peer = new Peer(undefined, {
                 debug: 0,
@@ -38,41 +63,60 @@ export class PlayerConnection {
 
                 this.connection.on('open', () => {
                     console.log('[Player] Connected to host');
-                    // Send join message
                     this.connection.send({
                         type: 'player-join',
                         payload: { name: playerName },
                     });
-                    this.emit('connected', {});
-                    resolve();
                 });
 
                 this.connection.on('data', (data) => {
+                    if (data?.type === 'join-confirmed') {
+                        this.emit('connected', data.payload || {});
+                        resolveOnce(data.payload || {});
+                        return;
+                    }
+
+                    if (data?.type === 'join-rejected') {
+                        const error = new Error(data.payload?.message || 'join-rejected');
+                        error.code = data.payload?.code || 'join-rejected';
+                        this.emit('error', { error });
+                        rejectOnce(error);
+                        return;
+                    }
+
                     this.emit('message', data);
                 });
 
                 this.connection.on('close', () => {
+                    if (!settled) {
+                        const error = new Error('connection-closed');
+                        error.code = 'connection-closed';
+                        rejectOnce(error);
+                    }
                     this.emit('disconnected', {});
                 });
 
                 this.connection.on('error', (err) => {
                     console.error('[Player] Connection error:', err);
+                    err.code = err.code || err.type || 'connection-error';
                     this.emit('error', { error: err });
-                    reject(err);
+                    rejectOnce(err);
                 });
 
-                // Timeout for connection
-                setTimeout(() => {
-                    if (!this.connection.open) {
-                        reject(new Error('Timeout conectando al host. Verifica el código de sala.'));
+                this.connectTimeoutId = setTimeout(() => {
+                    if (!settled) {
+                        const error = new Error('connection-timeout');
+                        error.code = 'connection-timeout';
+                        rejectOnce(error);
                     }
                 }, 10000);
             });
 
             this.peer.on('error', (err) => {
                 console.error('[Player] Peer error:', err);
+                err.code = err.code || err.type || 'peer-error';
                 this.emit('error', { error: err });
-                reject(err);
+                rejectOnce(err);
             });
         });
     }
@@ -84,6 +128,10 @@ export class PlayerConnection {
     }
 
     destroy() {
+        if (this.connectTimeoutId) {
+            clearTimeout(this.connectTimeoutId);
+            this.connectTimeoutId = null;
+        }
         if (this.connection) {
             this.connection.close();
             this.connection = null;

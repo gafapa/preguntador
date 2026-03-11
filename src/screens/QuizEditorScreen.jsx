@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getQuiz, saveQuiz, createDefaultQuiz } from '../game/QuizStore.js';
+import { coerceQuizShape, isQuizPlayable } from '../game/QuizSchema.js';
 import { useLanguage } from '../i18n.jsx';
 
 const TIME_OPTIONS = [10, 15, 20, 30];
@@ -9,7 +10,7 @@ export default function QuizEditorScreen({ navigate, quizId }) {
     const [quiz, setQuiz] = useState(() => {
         if (quizId) {
             const existing = getQuiz(quizId);
-            if (existing) return existing;
+            if (existing) return coerceQuizShape(existing, { id: existing.id });
         }
         return createDefaultQuiz();
     });
@@ -123,12 +124,7 @@ export default function QuizEditorScreen({ navigate, quizId }) {
 
     const { t } = useLanguage();
 
-    const isValid = quiz.title.trim() &&
-        quiz.questions.every((q) =>
-            q.text.trim() &&
-            q.answers.filter((a) => a.text.trim()).length >= 2 &&
-            q.answers.some((a) => a.correct && a.text.trim())
-        );
+    const isValid = isQuizPlayable(quiz);
 
     const activeQ = quiz.questions[activeQIdx];
 
@@ -137,9 +133,10 @@ export default function QuizEditorScreen({ navigate, quizId }) {
             {/* Sidebar */}
             <div className="quiz-editor-sidebar">
                 <div className="flex-row items-center gap-sm" style={{ marginBottom: 'var(--space-sm)' }}>
-                    <button className="btn btn-secondary btn-icon" onClick={() => navigate('home')} title={t('home.title') || "Home"}>←</button>
+                    <button className="btn btn-secondary btn-icon" onClick={() => navigate('home')} title={t('app.title')}>←</button>
                     <div style={{ flex: 1 }} />
                     <button className="btn btn-secondary btn-icon" onClick={addQuestion} title={t('editor.addQuestion')}>➕</button>
+                    <button className="btn btn-primary btn-icon" onClick={handlePlay} title={t('home.play')} disabled={!isValid}>▶</button>
                 </div>
 
                 <input
@@ -157,7 +154,7 @@ export default function QuizEditorScreen({ navigate, quizId }) {
                             className={`sidebar-question-item ${activeQIdx === idx ? 'active' : ''}`}
                             onClick={() => setActiveQIdx(idx)}
                         >
-                            <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)', whiteWhiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {idx + 1}. {q.text || t('editor.question')}
                             </span>
                             {quiz.questions.length > 1 && (
@@ -210,7 +207,7 @@ export default function QuizEditorScreen({ navigate, quizId }) {
                                 <div style={{ flex: 1, position: 'relative' }}>
                                     <input
                                         className="input"
-                                        placeholder={t('editor.imageUrl') || "URL de la imagen..."}
+                                        placeholder={t('editor.imageUrl')}
                                         value={activeQ.image && !activeQ.image.startsWith('data:image') ? activeQ.image : ''}
                                         onChange={(e) => updateQuestion(activeQIdx, { image: e.target.value })}
                                         style={{ paddingRight: 'var(--space-2xl)' }}
@@ -248,12 +245,12 @@ export default function QuizEditorScreen({ navigate, quizId }) {
 
                         {activeQ.image ? (
                             <div style={{ width: '100%', height: 200, borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <img src={activeQ.image} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                <img src={activeQ.image} alt={t('editor.imagePreviewAlt')} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                             </div>
                         ) : (
                             <div style={{ width: '100%', height: 200, borderRadius: 'var(--radius-md)', border: '2px dashed var(--color-border)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'var(--color-text-muted)', gap: 'var(--space-sm)', background: 'var(--color-bg-glass)', opacity: 0.6 }}>
                                 <span style={{ fontSize: '2rem' }}>🖼️</span>
-                                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>Sin imagen</span>
+                                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{t('editor.noImage')}</span>
                             </div>
                         )}
 
@@ -269,7 +266,7 @@ export default function QuizEditorScreen({ navigate, quizId }) {
                                     <span className="answer-shape">{SHAPES[aIdx]}</span>
                                     <input
                                         type="text"
-                                        placeholder={`Respuesta ${aIdx + 1}`}
+                                        placeholder={t('editor.answerPlaceholder', { number: aIdx + 1 })}
                                         value={a.text}
                                         onChange={(e) => updateAnswer(activeQIdx, aIdx, e.target.value)}
                                     />

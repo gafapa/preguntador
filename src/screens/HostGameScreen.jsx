@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameState } from '../game/GameEngine.js';
 import { useLanguage } from '../i18n.jsx';
 
@@ -17,6 +17,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
     const [countdownNum, setCountdownNum] = useState(3);
 
     const advanceTimerRef = useRef(null);
+    const countdownIntervalRef = useRef(null);
 
     useEffect(() => {
         if (!gameEngine || !hostConnection) return;
@@ -31,18 +32,24 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
             if (event === 'state-change') {
                 switch (data.state) {
                     case GameState.COUNTDOWN: {
+                        clearInterval(countdownIntervalRef.current);
                         setPhase('countdown');
                         setCountdownNum(3);
                         hostConnection.broadcast({ type: 'countdown', payload: { questionIndex: data.questionIndex, total: quiz.questions.length } });
                         let c = 3;
-                        const iv = setInterval(() => {
+                        countdownIntervalRef.current = setInterval(() => {
                             c--;
                             setCountdownNum(c);
-                            if (c <= 0) clearInterval(iv);
+                            if (c <= 0) {
+                                clearInterval(countdownIntervalRef.current);
+                                countdownIntervalRef.current = null;
+                            }
                         }, 1000);
                         break;
                     }
                     case GameState.QUESTION: {
+                        clearInterval(countdownIntervalRef.current);
+                        countdownIntervalRef.current = null;
                         setPhase('question');
                         setQuestionData(data.question);
                         setTimeRemaining(data.question.timeLimit);
@@ -109,6 +116,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
             unsubHost();
             unsubEngine();
             clearTimeout(advanceTimerRef.current);
+            clearInterval(countdownIntervalRef.current);
         };
     }, [gameEngine, hostConnection, quiz]);
 
@@ -132,9 +140,9 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
         return (
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center">
-                    <p className="subtitle">{t('game.ready') || 'Preparados...'}</p>
+                    <p className="subtitle">{t('game.ready')}</p>
                     <div className="timer-number" style={{ fontSize: 'var(--text-5xl)', animation: 'popIn 0.4s var(--ease-bounce)' }} key={countdownNum}>
-                        {countdownNum > 0 ? countdownNum : (t('game.go') || '¡Ya!')}
+                        {countdownNum > 0 ? countdownNum : t('game.go')}
                     </div>
                 </div>
             </div>
@@ -151,7 +159,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
                             {questionData.index + 1} / {questionData.total}
                         </span>
                         <span style={{ fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                            {answeredCount} / {gameEngine.players.size} {t('game.answers') || 'respuestas'}
+                            {answeredCount} / {gameEngine.players.size} {t('game.answers')}
                         </span>
                     </div>
                     <div className="timer-bar w-full">
@@ -166,7 +174,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
                     </div>
                     {questionData.image && (
                         <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 'var(--space-sm)' }}>
-                            <img src={questionData.image} alt="Question" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 'var(--radius-lg)' }} />
+                            <img src={questionData.image} alt={t('game.questionImageAlt')} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 'var(--radius-lg)' }} />
                         </div>
                     )}
                 </div>
@@ -190,8 +198,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
         return (
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center" style={{ maxWidth: 700, width: '100%' }}>
-                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('game.results') || 'Resultados'}</h2>
-
+                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('game.results')}</h2>
                     <div className="results-chart">
                         {resultsData.answers.map((text, i) => (
                             text && (
@@ -210,7 +217,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
                     </div>
 
                     <button className="btn btn-primary btn-large" onClick={handleNext}>
-                        {t('game.next') || 'Siguiente →'}
+                        {t('game.next')}
                     </button>
                 </div>
             </div>
@@ -224,7 +231,7 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center" style={{ maxWidth: 500, width: '100%' }}>
                     <h2 className="title title-gradient" style={{ fontSize: 'var(--text-2xl)' }}>
-                        {phase === 'end' ? (t('game.finalResults') || '🏆 Resultados Finales') : (t('player.leaderboard') || '📊 Clasificación')}
+                        {phase === 'end' ? t('game.finalResults') : t('player.leaderboard')}
                     </h2>
 
                     <div className="leaderboard">
@@ -239,11 +246,11 @@ export default function HostGameScreen({ navigate, quiz, hostConnection, gameEng
 
                     {phase !== 'end' ? (
                         <button className="btn btn-primary btn-large" onClick={handleNext}>
-                            {t('game.nextQuestion') || 'Siguiente Pregunta →'}
+                            {t('game.nextQuestion')}
                         </button>
                     ) : (
                         <button className="btn btn-primary btn-large" onClick={handleEndGame}>
-                            🏠 {t('home.backBtn') || 'Volver al Inicio'}
+                            🏠 {t('home.backBtn')}
                         </button>
                     )}
                 </div>

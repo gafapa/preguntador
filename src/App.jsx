@@ -1,12 +1,13 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import HomeScreen from './screens/HomeScreen.jsx';
 import QuizEditorScreen from './screens/QuizEditorScreen.jsx';
 import HostLobbyScreen from './screens/HostLobbyScreen.jsx';
 import HostGameScreen from './screens/HostGameScreen.jsx';
 import JoinScreen from './screens/JoinScreen.jsx';
 import PlayerGameScreen from './screens/PlayerGameScreen.jsx';
-import { LanguageProvider } from './i18n.jsx';
+import { LanguageProvider, useLanguage } from './i18n.jsx';
 import { ThemeProvider } from './ThemeProvider.jsx';
+import { REPO_URL } from './config.js';
 
 /**
  * App — SPA router based on state
@@ -34,35 +35,50 @@ export default function App() {
     return (
         <ThemeProvider>
             <LanguageProvider>
-                <div className="bg-gradient" />
-                {screen === 'home' && (
-                    <HomeScreen navigate={navigate} />
-                )}
-                {screen === 'editor' && (
-                    <QuizEditorScreen navigate={navigate} quizId={screenProps.quizId} />
-                )}
-                {screen === 'host-lobby' && (
-                    <HostLobbyScreen navigate={navigate} quizId={screenProps.quizId} />
-                )}
-                {screen === 'host-game' && (
-                    <HostGameScreen
-                        navigate={navigate}
-                        quiz={screenProps.quiz}
-                        hostConnection={screenProps.hostConnection}
-                        gameEngine={screenProps.gameEngine}
-                    />
-                )}
-                {screen === 'join' && (
-                    <JoinScreen navigate={navigate} />
-                )}
-                {screen === 'player-game' && (
-                    <PlayerGameScreen
-                        navigate={navigate}
-                        playerConnection={screenProps.playerConnection}
-                        playerName={screenProps.playerName}
-                    />
-                )}
+                <AppFrame navigate={navigate} screen={screen} screenProps={screenProps} />
             </LanguageProvider>
         </ThemeProvider>
+    );
+}
+
+function AppFrame({ navigate, screen, screenProps }) {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <div className="bg-gradient" />
+            {screen === 'home' && (
+                <HomeScreen navigate={navigate} />
+            )}
+            {screen === 'editor' && (
+                <QuizEditorScreen navigate={navigate} quizId={screenProps.quizId} />
+            )}
+            {screen === 'host-lobby' && (
+                <HostLobbyScreen navigate={navigate} quizId={screenProps.quizId} />
+            )}
+            {screen === 'host-game' && (
+                <HostGameScreen
+                    navigate={navigate}
+                    quiz={screenProps.quiz}
+                    hostConnection={screenProps.hostConnection}
+                    gameEngine={screenProps.gameEngine}
+                />
+            )}
+            {screen === 'join' && (
+                <JoinScreen navigate={navigate} />
+            )}
+            {screen === 'player-game' && (
+                <PlayerGameScreen
+                    navigate={navigate}
+                    playerConnection={screenProps.playerConnection}
+                    playerName={screenProps.playerName}
+                    playerId={screenProps.playerId}
+                />
+            )}
+            <a className="repo-link" href={REPO_URL} target="_blank" rel="noreferrer">
+                <span>{t('app.repository')}</span>
+                <span>{REPO_URL}</span>
+            </a>
+        </>
     );
 }

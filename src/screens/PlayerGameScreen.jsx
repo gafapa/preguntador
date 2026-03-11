@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../i18n.jsx';
 
 const SHAPES = ['▲', '◆', '●', '■'];
 
-export default function PlayerGameScreen({ navigate, playerConnection, playerName }) {
+export default function PlayerGameScreen({ navigate, playerConnection, playerName, playerId }) {
     const { t } = useLanguage();
     const [phase, setPhase] = useState('waiting');
     const [questionData, setQuestionData] = useState(null);
@@ -73,12 +73,12 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
             case 'leaderboard':
                 setPhase('leaderboard');
                 setLeaderboardData(msg.payload);
-                setMyRank(msg.payload.leaderboard.findIndex(p => p.name === playerName) + 1 || null);
+                setMyRank(resolveRank(msg.payload.leaderboard, playerId, playerName));
                 break;
             case 'game-end':
                 setPhase('end');
                 setLeaderboardData(msg.payload);
-                setMyRank(msg.payload.leaderboard.findIndex(p => p.name === playerName) + 1 || null);
+                setMyRank(resolveRank(msg.payload.leaderboard, playerId, playerName));
                 break;
         }
     };
@@ -93,10 +93,10 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center">
                     <div style={{ fontSize: '3rem' }}>😵</div>
-                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('player.disconnectedTitle') || 'Conexión perdida'}</h2>
-                    <p className="subtitle">{t('player.disconnectedSub') || 'Se ha perdido la conexión con el host'}</p>
+                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('player.disconnectedTitle')}</h2>
+                    <p className="subtitle">{t('player.disconnectedSub')}</p>
                     <button className="btn btn-primary btn-large" onClick={handleLeave}>
-                        🏠 {t('home.backBtn') || 'Volver al Inicio'}
+                        🏠 {t('home.backBtn')}
                     </button>
                 </div>
             </div>
@@ -108,8 +108,8 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center">
                     <div style={{ fontSize: '3rem', animation: 'popIn 0.4s var(--ease-bounce)' }}>✅</div>
-                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('player.in') || '¡Estás dentro!'}</h2>
-                    <p className="subtitle">Hola, <strong>{playerName}</strong></p>
+                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('player.in')}</h2>
+                    <p className="subtitle">{t('player.greeting', { name: playerName })}</p>
                     <p style={{ color: 'var(--color-text-muted)' }}>{t('player.waitingLabel')}</p>
                     <div className="dots-loader" style={{ display: 'flex', gap: 8 }}>
                         {[0, 1, 2].map((i) => (
@@ -127,7 +127,7 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
                 <div className="flex-col items-center gap-xl text-center">
                     <div style={{ fontSize: '3rem' }}>⏳</div>
                     <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>{t('player.getReady')}</h2>
-                    <p className="subtitle">{t('player.nextQuestionLabel') || 'La siguiente pregunta está a punto de aparecer'}</p>
+                    <p className="subtitle">{t('player.nextQuestionLabel')}</p>
                 </div>
             </div>
         );
@@ -138,7 +138,7 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
             <div className="screen" style={{ justifyContent: 'center', padding: 'var(--space-md)' }}>
                 <div className="flex-col items-center gap-lg w-full" style={{ maxWidth: 600 }}>
                     <p style={{ fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                        {t('home.question')} {questionData.index + 1} / {questionData.total}
+                        {t('game.questionCounter', { current: questionData.index + 1, total: questionData.total })}
                     </p>
                     <div className="answer-grid w-full">
                         {questionData.answers.map((text, i) => (
@@ -166,7 +166,7 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
                     <div className={`answer-btn answer-${selectedAnswer}`} style={{ width: 120, height: 120, borderRadius: 'var(--radius-xl)', fontSize: 'var(--text-3xl)', cursor: 'default' }}>
                         <span className="answer-shape" style={{ fontSize: 'var(--text-3xl)' }}>{SHAPES[selectedAnswer]}</span>
                     </div>
-                    <p className="subtitle">{t('player.sent') || '¡Respuesta enviada!'}</p>
+                    <p className="subtitle">{t('player.sent')}</p>
                     <p style={{ color: 'var(--color-text-muted)' }}>{t('player.waitingOthers')}</p>
                 </div>
             </div>
@@ -184,7 +184,7 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
                     )}
                     {resultData.streak > 1 && (
                         <div style={{ color: 'var(--color-yellow)', fontWeight: 700, marginTop: 'var(--space-sm)' }}>
-                            🔥 {t('player.streak') || 'Racha de'} {resultData.streak}
+                            🔥 {t('player.streak')} {resultData.streak}
                         </div>
                     )}
                 </div>
@@ -196,14 +196,14 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
         return (
             <div className="screen">
                 <div className="flex-col items-center gap-xl text-center">
-                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>📊 {t('player.leaderboard') || 'Clasificación'}</h2>
+                    <h2 className="title" style={{ fontSize: 'var(--text-2xl)' }}>📊 {t('player.leaderboard')}</h2>
                     {myRank && (
                         <div className="glass-card" style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{t('player.rank') || 'Tu posición'}</p>
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{t('player.rank')}</p>
                             <p style={{ fontSize: 'var(--text-3xl)', fontWeight: 900, color: 'var(--color-primary-light)' }}>#{myRank}</p>
                         </div>
                     )}
-                    <p style={{ color: 'var(--color-text-muted)' }}>{t('player.waitingNext') || 'Esperando siguiente pregunta...'}</p>
+                    <p style={{ color: 'var(--color-text-muted)' }}>{t('player.waitingNext')}</p>
                 </div>
             </div>
         );
@@ -217,14 +217,14 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
                     <h2 className="title title-gradient" style={{ fontSize: 'var(--text-2xl)' }}>🏆 {t('player.gameEnded')}</h2>
                     {myRank && (
                         <div className="glass-card">
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{t('player.finalRank') || 'Tu posición final'}</p>
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{t('player.finalRank')}</p>
                             <p style={{ fontSize: 'var(--text-4xl)', fontWeight: 900 }}>
                                 {myRank <= 3 ? podiumEmojis[myRank - 1] : `#${myRank}`}
                             </p>
                         </div>
                     )}
                     <button className="btn btn-primary btn-large" onClick={handleLeave}>
-                        🏠 {t('home.backBtn') || 'Volver al Inicio'}
+                        🏠 {t('home.backBtn')}
                     </button>
                 </div>
             </div>
@@ -232,4 +232,18 @@ export default function PlayerGameScreen({ navigate, playerConnection, playerNam
     }
 
     return null;
+}
+
+function resolveRank(leaderboard, playerId, playerName) {
+    if (!Array.isArray(leaderboard)) {
+        return null;
+    }
+
+    const matchById = playerId ? leaderboard.findIndex((player) => player.id === playerId) : -1;
+    if (matchById >= 0) {
+        return matchById + 1;
+    }
+
+    const matchByName = leaderboard.findIndex((player) => player.name === playerName);
+    return matchByName >= 0 ? matchByName + 1 : null;
 }

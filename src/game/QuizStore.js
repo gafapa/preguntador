@@ -1,6 +1,7 @@
 /**
  * QuizStore — CRUD de quizzes en localStorage
  */
+import { coerceQuizShape } from './QuizSchema.js';
 
 const STORAGE_KEY = 'preguntador_quizzes';
 
@@ -31,7 +32,9 @@ export function createDefaultQuiz() {
 export function loadQuizzes() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const quizzes = data ? JSON.parse(data) : [];
+    if (!Array.isArray(quizzes)) return [];
+    return quizzes.map((quiz) => coerceQuizShape(quiz, { id: generateId() }));
   } catch {
     return [];
   }
@@ -46,12 +49,13 @@ export function getQuiz(id) {
 }
 
 export function saveQuiz(quiz) {
+  const normalizedQuiz = coerceQuizShape(quiz, { id: quiz?.id || generateId() });
   const quizzes = loadQuizzes();
-  const idx = quizzes.findIndex((q) => q.id === quiz.id);
+  const idx = quizzes.findIndex((q) => q.id === normalizedQuiz.id);
   if (idx >= 0) {
-    quizzes[idx] = quiz;
+    quizzes[idx] = normalizedQuiz;
   } else {
-    quizzes.push(quiz);
+    quizzes.push(normalizedQuiz);
   }
   saveQuizzes(quizzes);
 }

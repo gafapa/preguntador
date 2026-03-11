@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getQuiz } from '../game/QuizStore.js';
 import { GameEngine } from '../game/GameEngine.js';
+import { isQuizPlayable } from '../game/QuizSchema.js';
 import { HostConnection } from '../network/HostConnection.js';
 import { useLanguage } from '../i18n.jsx';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -21,7 +22,11 @@ export default function HostLobbyScreen({ navigate, quizId }) {
     useEffect(() => {
         const quiz = getQuiz(quizId);
         if (!quiz) {
-            setError('Error');
+            setError(t('lobby.errorMissingQuiz'));
+            return;
+        }
+        if (!isQuizPlayable(quiz)) {
+            setError(t('lobby.errorInvalidQuiz'));
             return;
         }
         quizRef.current = quiz;
@@ -41,8 +46,15 @@ export default function HostLobbyScreen({ navigate, quizId }) {
                 const added = engine.addPlayer(data.peerId, data.payload.name);
                 if (added) {
                     setPlayers(engine.getPlayerList());
-                    // Confirm to player
-                    host.sendTo(data.peerId, { type: 'join-confirmed', payload: { name: data.payload.name } });
+                    host.sendTo(data.peerId, {
+                        type: 'join-confirmed',
+                        payload: { name: data.payload.name, playerId: data.peerId },
+                    });
+                } else {
+                    host.sendTo(data.peerId, {
+                        type: 'join-rejected',
+                        payload: { code: 'game-in-progress' },
+                    });
                 }
             }
             if (event === 'player-disconnected') {
@@ -50,12 +62,12 @@ export default function HostLobbyScreen({ navigate, quizId }) {
                 setPlayers(engine.getPlayerList());
             }
             if (event === 'error') {
-                setError('Error');
+                setError(t('lobby.errorGeneric'));
             }
         });
 
         host.create().catch((err) => {
-            setError('Error: ' + err.message);
+            setError(err?.message ? `${t('lobby.errorGeneric')}: ${err.message}` : t('lobby.errorGeneric'));
         });
 
         return () => {
@@ -76,7 +88,8 @@ export default function HostLobbyScreen({ navigate, quizId }) {
         });
     };
 
-    const networkUrl = window.location.origin;
+    const joinUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+    joinUrl.searchParams.set('code', roomCode);
 
     return (
         <div className="screen">
@@ -104,12 +117,12 @@ export default function HostLobbyScreen({ navigate, quizId }) {
                                     </p>
                                     <div className="room-code" style={{ marginBottom: 'var(--space-md)' }}>{roomCode}</div>
                                     <div style={{ background: '#fff', padding: 10, borderRadius: 8, display: 'inline-block' }}>
-                                        <QRCodeCanvas value={`${networkUrl}?code=${roomCode}`} size={160} />
+                                        <QRCodeCanvas value={joinUrl.toString()} size={160} />
                                     </div>
                                 </div>
 
                                 <div className="glass-card" style={{ padding: 'var(--space-md) var(--space-lg)', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                                    <p>Scan to join, or go to <strong style={{ color: 'var(--color-text)' }}>{networkUrl}</strong></p>
+                                    <p>{t('lobby.joinHint', { url: joinUrl.toString() })}</p>
                                 </div>
                             </>
                         )}

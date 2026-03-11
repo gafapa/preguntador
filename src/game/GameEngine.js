@@ -24,6 +24,7 @@ export class GameEngine {
         this.questionStartTime = 0;
         this.listeners = new Set();
         this.timerId = null;
+        this.countdownTimeoutId = null;
         this.timeRemaining = 0;
     }
 
@@ -71,6 +72,7 @@ export class GameEngine {
     }
 
     nextQuestion() {
+        clearTimeout(this.countdownTimeoutId);
         this.currentQuestionIndex++;
         if (this.currentQuestionIndex >= this.quiz.questions.length) {
             this.state = GameState.END;
@@ -81,7 +83,7 @@ export class GameEngine {
         this.state = GameState.COUNTDOWN;
         this.emit('state-change', { state: GameState.COUNTDOWN, questionIndex: this.currentQuestionIndex });
 
-        setTimeout(() => {
+        this.countdownTimeoutId = setTimeout(() => {
             this.showQuestion();
         }, 3000);
     }
@@ -138,6 +140,7 @@ export class GameEngine {
     }
 
     showResults() {
+        clearInterval(this.timerId);
         this.state = GameState.RESULTS;
         const question = this.quiz.questions[this.currentQuestionIndex];
         const correctIndex = question.answers.findIndex((a) => a.correct);
@@ -196,6 +199,7 @@ export class GameEngine {
 
     destroy() {
         clearInterval(this.timerId);
+        clearTimeout(this.countdownTimeoutId);
         this.listeners.clear();
     }
 }
