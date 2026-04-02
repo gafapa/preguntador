@@ -37,6 +37,9 @@ export class HostConnection {
             const peerId = PEER_PREFIX + this.roomCode.toLowerCase();
 
             this.peer = new Peer(peerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
                 debug: 0,
             });
 

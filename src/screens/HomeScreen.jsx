@@ -3,6 +3,7 @@ import { loadQuizzes, deleteQuiz, saveQuiz, generateId } from '../game/QuizStore
 import { isQuizPlayable, parseImportedQuiz } from '../game/QuizSchema.js';
 import { useLanguage } from '../i18n.jsx';
 import { useTheme } from '../ThemeProvider.jsx';
+import { REPO_URL } from '../config.js';
 
 export default function HomeScreen({ navigate }) {
     const [quizzes, setQuizzes] = React.useState(() => loadQuizzes());
@@ -85,6 +86,11 @@ export default function HomeScreen({ navigate }) {
                     <option value="es">{t('language.es')}</option>
                     <option value="en">{t('language.en')}</option>
                     <option value="gl">{t('language.gl')}</option>
+                    <option value="ca">{t('language.ca')}</option>
+                    <option value="eu">{t('language.eu')}</option>
+                    <option value="pt">{t('language.pt')}</option>
+                    <option value="fr">{t('language.fr')}</option>
+                    <option value="de">{t('language.de')}</option>
                 </select>
                 <button className="nav-btn" onClick={toggleTheme}>
                     {theme === 'dark' ? '🌞' : '🌙'}
@@ -158,6 +164,12 @@ export default function HomeScreen({ navigate }) {
             >
                 🤖 {t('home.chatgptPrompt')}
             </button>
+
+            {/* Repository Link bottom-left */}
+            <a className="repo-link" href={REPO_URL} target="_blank" rel="noreferrer">
+                <span>{t('app.repository')}</span>
+                <span>{REPO_URL}</span>
+            </a>
 
             {/* Modal for Prompt Copying */}
             {showGptModal && (

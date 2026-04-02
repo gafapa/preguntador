@@ -51,6 +51,9 @@ export class PlayerConnection {
             };
 
             this.peer = new Peer(undefined, {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
                 debug: 0,
             });
 

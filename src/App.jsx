@@ -75,10 +75,6 @@ function AppFrame({ navigate, screen, screenProps }) {
                     playerId={screenProps.playerId}
                 />
             )}
-            <a className="repo-link" href={REPO_URL} target="_blank" rel="noreferrer">
-                <span>{t('app.repository')}</span>
-                <span>{REPO_URL}</span>
-            </a>
         </>
     );
 }
